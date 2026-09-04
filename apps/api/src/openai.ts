@@ -306,6 +306,7 @@ export async function queryAI(
   const isGemini =
     Boolean(process.env.GEMINI_API_KEY) ||
     apiKey.startsWith("AIzaSy") ||
+    apiKey.startsWith("AQ.") ||
     /googleapis\.com/.test(process.env.AI_BASE_URL ?? "");
 
   const baseUrl =
@@ -316,9 +317,10 @@ export async function queryAI(
 
   const modelCandidates = isGemini
     ? [
-        process.env.AI_MODEL || "gemini-2.0-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
+        process.env.AI_MODEL || "gemini-3.6-flash",
+        "gemini-3.6-flash",
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
       ]
     : [
         process.env.AI_MODEL || "openai/gpt-oss-120b",
