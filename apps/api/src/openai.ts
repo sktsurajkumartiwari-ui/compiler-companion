@@ -289,8 +289,19 @@ export async function checkAiHealth(): Promise<AiDiagnostic> {
     /googleapis\.com/.test(process.env.AI_BASE_URL ?? "");
 
   const provider = isGemini ? "Google Gemini" : (activeKey.startsWith("gsk_") ? "Groq" : "OpenAI/Compatible");
-  const model = process.env.AI_MODEL || (isGemini ? "gemini-3.6-flash" : "openai/gpt-oss-120b");
-  const baseUrl = process.env.AI_BASE_URL || (isGemini ? "https://generativelanguage.googleapis.com/v1beta/openai" : "https://api.groq.com/openai/v1");
+  const rawModel = (process.env.AI_MODEL || "").trim();
+  const model = isGemini
+    ? (rawModel && !rawModel.includes("gpt-oss") && !rawModel.includes("qwen") ? rawModel : "gemini-3.6-flash")
+    : (rawModel || "openai/gpt-oss-120b");
+
+  let baseUrl = (process.env.AI_BASE_URL || "").trim();
+  if (isGemini) {
+    if (!baseUrl || !baseUrl.includes("googleapis.com")) {
+      baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+    }
+  } else if (!baseUrl) {
+    baseUrl = "https://api.groq.com/openai/v1";
+  }
 
   const keyMasked = activeKey.length > 8 ? `${activeKey.slice(0, 6)}...${activeKey.slice(-4)}` : "configured";
 
@@ -363,15 +374,21 @@ export async function queryAI(
     apiKey.startsWith("AQ") ||
     /googleapis\.com/.test(process.env.AI_BASE_URL ?? "");
 
-  const baseUrl =
-    process.env.AI_BASE_URL ??
-    (isGemini
-      ? "https://generativelanguage.googleapis.com/v1beta/openai"
-      : "https://api.groq.com/openai/v1");
+  let baseUrl = (process.env.AI_BASE_URL || "").trim();
+  if (isGemini) {
+    if (!baseUrl || !baseUrl.includes("googleapis.com")) {
+      baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+    }
+  } else if (!baseUrl) {
+    baseUrl = "https://api.groq.com/openai/v1";
+  }
 
+  const queryRawModel = (process.env.AI_MODEL || "").trim();
   const modelCandidates = isGemini
     ? [
-        process.env.AI_MODEL || "gemini-3.6-flash",
+        queryRawModel && !queryRawModel.includes("gpt-oss") && !queryRawModel.includes("qwen") && !queryRawModel.includes("llama")
+          ? queryRawModel
+          : "gemini-3.6-flash",
         "gemini-3.6-flash",
         "gemini-flash-latest",
         "gemini-2.5-flash",
@@ -379,7 +396,9 @@ export async function queryAI(
         "gemini-1.5-flash",
       ]
     : [
-        process.env.AI_MODEL || "openai/gpt-oss-120b",
+        queryRawModel && !queryRawModel.includes("gemini")
+          ? queryRawModel
+          : "openai/gpt-oss-120b",
         "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
         "qwen/qwen3.8-27b",
