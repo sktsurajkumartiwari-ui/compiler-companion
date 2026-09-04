@@ -21,6 +21,7 @@ import {
 } from "./components";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { useResizableLayout } from "./hooks/useResizableLayout";
+import { call } from "./api";
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => {
@@ -151,6 +152,16 @@ function Workspace({ session, signOut }: { session: Session; signOut: () => void
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [workspace, layout]);
+
+  // Keep-alive heartbeat: ping backend every 4 minutes to prevent Render free-tier cold starts
+  useEffect(() => {
+    const ping = () => {
+      void call("/health").catch(() => {});
+    };
+    ping();
+    const interval = setInterval(ping, 4 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Command Palette items list
   const commands: CommandItem[] = useMemo(

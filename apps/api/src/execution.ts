@@ -32,10 +32,15 @@ async function checkBin(bin: string): Promise<boolean> {
   });
 }
 
+let dockerAvailableCache: boolean | null = null;
 async function isDockerAvailable(): Promise<boolean> {
   if (process.env.EXECUTION_ENABLED !== "true") return false;
+  if (dockerAvailableCache !== null) return dockerAvailableCache;
   return new Promise<boolean>((resolve) => {
-    exec("docker info", { timeout: 3000 }, (err) => resolve(!err));
+    exec("docker info", { timeout: 1500 }, (err) => {
+      dockerAvailableCache = !err;
+      resolve(!err);
+    });
   });
 }
 
