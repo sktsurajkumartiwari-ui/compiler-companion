@@ -404,23 +404,22 @@ export async function queryAI(
         "qwen/qwen3.8-27b",
       ];
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45_000);
-
-  try {
     const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
     const callErrors: string[] = [];
+    const uniqueModels = [...new Set(modelCandidates)];
 
-    for (const model of modelCandidates) {
+    for (const model of uniqueModels) {
+      const modelController = new AbortController();
+      const modelTimeout = setTimeout(() => modelController.abort(), 60_000);
       try {
-        console.info(`[Nova] Calling model: ${model}`);
+        console.info(`[Nova] Calling model: ${model} at ${endpoint}`);
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
-          signal: controller.signal,
+          signal: modelController.signal,
           body: JSON.stringify({
             model,
             messages: [
@@ -437,7 +436,8 @@ export async function queryAI(
           const data = (await response.json()) as {
             choices?: { message?: { content?: string } }[];
           };
-          return data.choices?.[0]?.message?.content ?? "";
+          const content = data.choices?.[0]?.message?.content ?? "";
+          if (content) return content;
         }
 
         const errText = await response.text().catch(() => "");
@@ -445,11 +445,12 @@ export async function queryAI(
         callErrors.push(`${model} [${response.status}]: ${snippet}`);
         console.warn(`[Nova] Model ${model} returned ${response.status}: ${snippet}`);
       } catch (innerError) {
-        const msg = innerError instanceof Error ? innerError.message : String(innerError);
+        const isAbort = innerError instanceof Error && innerError.name === "AbortError";
+        const msg = isAbort ? "Timed out after 60s" : (innerError instanceof Error ? innerError.message : String(innerError));
         callErrors.push(`${model}: ${msg}`);
-        console.warn(
-          `[Nova] Attempt with ${model} failed: ${msg}`,
-        );
+        console.warn(`[Nova] Attempt with ${model} failed: ${msg}`);
+      } finally {
+        clearTimeout(modelTimeout);
       }
     }
 
@@ -457,15 +458,7 @@ export async function queryAI(
     throw new Error(
       `Unable to connect to ${providerName}. ${callErrors.length > 0 ? `Details: ${callErrors.join(" | ")}` : "Please check your API key and network."}`,
     );
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("GOAT request timed out. Please try a simpler request.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
   }
-}
 
 export async function askOpenAI(input: NovaInput): Promise<NovaReply> {
   const content = await queryAI(systemPrompt, userContext(input), 0.2);

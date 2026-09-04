@@ -741,47 +741,13 @@ app.post("/api/nova/chat", async (req, res, next) => {
   try {
     const input = novaInput.parse(req.body);
     console.info("[Nova] Request:", input.message.slice(0, 100));
-    let reply = await askOpenAI(input);
+    const reply = await askOpenAI(input);
     console.info(
       "[Nova] Reply:",
       reply.message?.slice(0, 100),
       "hasReplacement:",
       !!reply.replacement,
     );
-    const maxAttempts = 2;
-    for (let attempt = 0; reply.replacement && attempt < maxAttempts; attempt += 1) {
-      if (process.env.EXECUTION_ENABLED !== "true") {
-        // Secure execution is not enabled in environment, return AI reply directly
-        return res.json(reply);
-      }
-
-      console.info(`[Nova] Verification attempt ${attempt + 1}/${maxAttempts}`);
-      const verification = await execute({
-        language: input.language,
-        code: reply.replacement,
-        stdin: "1\n1\n1\n1\n5\nq\nexit\n",
-      });
-      console.info("[Nova] Verification result:", verification.status);
-
-      // If execution completed or if sandbox is unavailable, accept immediately
-      if (verification.status === "completed" || verification.status === "unavailable") {
-        return res.json(reply);
-      }
-
-      // If program timed out waiting for user interaction without syntax errors, accept it
-      if (verification.status === "timeout" && !/syntaxerror|error:/i.test(verification.stderr)) {
-        return res.json(reply);
-      }
-
-      // If there's a syntax or compilation error, request one targeted correction from Nova
-      if (attempt < maxAttempts - 1) {
-        reply = await askOpenAI({
-          ...input,
-          message: `${input.message}\n\nPlease fix this syntax/compiler error in the generated code:\n${verification.stderr}\n\nReturn the corrected source code.`,
-          diagnostics: verification.diagnostics,
-        });
-      }
-    }
     res.json(reply);
   } catch (error) {
     console.error("[Nova Error]", error instanceof Error ? error.message : error);
