@@ -292,12 +292,13 @@ export async function queryAI(
     }
   }
 
-  const apiKey = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
+  const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "";
+  if (!apiKey) {
+    throw new Error("AI API Key is not configured. Please add AI_API_KEY to Render Environment Variables.");
+  }
   const modelCandidates = [
-    process.env.AI_MODEL || "llama-3.3-70b-versatile",
+    process.env.AI_MODEL || "openai/gpt-oss-120b",
     "openai/gpt-oss-120b",
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
     "openai/gpt-oss-20b",
     "qwen/qwen3.8-27b",
   ];

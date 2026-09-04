@@ -1227,7 +1227,13 @@ export function useWorkspace(session: Session, onSignOut?: () => void): UseWorks
       }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f") {
         event.preventDefault();
-        void analyze();
+        if (result?.diagnostics && result.diagnostics.length > 0) {
+          void analyze();
+        } else {
+          void askNova(
+            "Please review, debug, and auto-fix any syntax errors, runtime exceptions, or logic bugs in this code. Provide the complete corrected source code with clear inline comments.",
+          );
+        }
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         undoFix();

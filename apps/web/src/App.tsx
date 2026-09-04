@@ -128,7 +128,13 @@ function Workspace({ session, signOut }: { session: Session; signOut: () => void
       else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "F" || e.key === "f")) {
         e.preventDefault();
         layout.openAi();
-        void workspace.analyze();
+        if (workspace.result?.diagnostics && workspace.result.diagnostics.length > 0) {
+          void workspace.analyze();
+        } else {
+          void workspace.askNova(
+            "Please review, debug, and auto-fix any syntax errors, runtime exceptions, or logic bugs in this code. Provide the complete corrected source code with clear inline comments.",
+          );
+        }
       }
       // Ctrl + B -> Toggle Sidebar
       else if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
@@ -289,7 +295,13 @@ function Workspace({ session, signOut }: { session: Session; signOut: () => void
         onSave={() => void workspace.save()}
         onAutoFix={() => {
           layout.openAi();
-          void workspace.analyze();
+          if (workspace.result?.diagnostics && workspace.result.diagnostics.length > 0) {
+            void workspace.analyze();
+          } else {
+            void workspace.askNova(
+              "Please review, debug, and auto-fix any syntax errors, runtime exceptions, or logic bugs in this code. Provide the complete corrected source code with clear inline comments.",
+            );
+          }
         }}
         onRun={() => {
           layout.openTerminal();

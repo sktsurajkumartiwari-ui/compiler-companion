@@ -748,7 +748,10 @@ app.post("/api/nova/chat", async (req, res, next) => {
     res.json(reply);
   } catch (error) {
     console.error("[Nova Error]", error instanceof Error ? error.message : error);
-    next(error);
+    res.json({
+      message: `### ⚠️ AI Assistant Notice\n\n${error instanceof Error ? error.message : "Unable to contact AI service."}`,
+      reason: "AI Notice",
+    });
   }
 });
 app.post("/api/tts", async (req, res) => {
