@@ -44,6 +44,10 @@ export function useTerminal(options?: UseTerminalOptions) {
       return import.meta.env.VITE_WS_URL;
     }
     const host = window.location.hostname || "localhost";
+    const isLocalhost = /^(localhost|127\.0\.0\.1)$/.test(host);
+    if (!isLocalhost) {
+      return "wss://compiler-companion-api.onrender.com/api/terminal";
+    }
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${host}:8787/api/terminal`;
   }, []);

@@ -4,6 +4,10 @@ const getApiBase = (): string => {
   }
   if (typeof window !== "undefined") {
     const host = window.location.hostname || "localhost";
+    const isLocalhost = /^(localhost|127\.0\.0\.1)$/.test(host);
+    if (!isLocalhost) {
+      return "https://compiler-companion-api.onrender.com/api";
+    }
     const protocol = window.location.protocol || "http:";
     return `${protocol}//${host}:8787/api`;
   }
