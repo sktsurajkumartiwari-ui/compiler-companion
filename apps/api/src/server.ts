@@ -239,9 +239,40 @@ app.get("/", (_req, res) =>
   }),
 );
 
-app.get("/api/health", (_req, res) =>
-  res.json({ ok: true, executionEnabled: process.env.EXECUTION_ENABLED === "true" }),
-);
+app.get("/api/health", async (_req, res) => {
+  const checkCmd = async (cmd: string): Promise<string> => {
+    try {
+      const { exec } = await import("node:child_process");
+      return await new Promise<string>((resolve) => {
+        exec(cmd, { timeout: 3000 }, (error, stdout, stderr) => {
+          if (error) resolve(`error: ${error.message.split("\n")[0]}`);
+          else resolve((stdout || stderr || "available").trim().split("\n")[0]);
+        });
+      });
+    } catch (e) {
+      return `catch: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  };
+
+  const [python3, python, gpp, dockerVer] = await Promise.all([
+    checkCmd("python3 --version"),
+    checkCmd("python --version"),
+    checkCmd("g++ --version"),
+    checkCmd("docker --version"),
+  ]);
+
+  res.json({
+    ok: true,
+    executionEnabled: process.env.EXECUTION_ENABLED === "true",
+    env: {
+      python3,
+      python,
+      gpp,
+      docker: dockerVer,
+      platform: process.platform,
+    },
+  });
+});
 app.post("/api/auth/register", async (req, res, next) => {
   try {
     const input = credentials.parse(req.body);
