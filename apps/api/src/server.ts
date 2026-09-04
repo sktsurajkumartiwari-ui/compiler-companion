@@ -27,6 +27,8 @@ import {
   generateTestCases,
   explainTestCaseFailure,
   fixFailedTestCaseAI,
+  checkAiHealth,
+  queryAI,
 } from "./openai.js";
 
 const app = express();
@@ -254,16 +256,19 @@ app.get("/api/health", async (_req, res) => {
     }
   };
 
-  const [python3, python, gpp, dockerVer] = await Promise.all([
+  const [python3, python, gpp, dockerVer, aiStatus] = await Promise.all([
     checkCmd("python3 --version"),
     checkCmd("python --version"),
     checkCmd("g++ --version"),
     checkCmd("docker --version"),
+    checkAiHealth(),
   ]);
 
   res.json({
     ok: true,
+    version: "2026.09.05-v2",
     executionEnabled: true,
+    ai: aiStatus,
     env: {
       python3,
       python,
@@ -272,6 +277,38 @@ app.get("/api/health", async (_req, res) => {
       platform: process.platform,
     },
   });
+});
+
+app.get("/api/health/ai-test", async (_req, res) => {
+  try {
+    const aiStatus = await checkAiHealth();
+    if (!aiStatus.keyConfigured) {
+      return res.status(400).json({
+        ok: false,
+        error: "No AI API key found in environment variables (GEMINI_API_KEY, AI_API_KEY, GROQ_API_KEY).",
+        aiStatus,
+      });
+    }
+
+    const testReply = await queryAI(
+      "You are an assistant. Reply with only: OK",
+      "ping",
+      0.1,
+      false,
+    );
+
+    res.json({
+      ok: true,
+      provider: aiStatus.provider,
+      model: aiStatus.model,
+      reply: testReply.slice(0, 100).trim(),
+    });
+  } catch (error) {
+    res.status(502).json({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 });
 app.post("/api/auth/register", async (req, res, next) => {
   try {

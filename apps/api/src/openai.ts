@@ -253,6 +253,58 @@ function parseReply(value: string): NovaReply {
   }
 }
 
+export interface AiDiagnostic {
+  ok: boolean;
+  provider: string;
+  model: string;
+  keyConfigured: boolean;
+  keyMasked: string;
+  baseUrl: string;
+  status: string;
+}
+
+export async function checkAiHealth(): Promise<AiDiagnostic> {
+  const geminiKey = (process.env.GEMINI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
+  const aiKey = (process.env.AI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
+  const groqKey = (process.env.GROQ_API_KEY || "").trim().replace(/^["']|["']$/g, "");
+  const openAiKey = (process.env.OPENAI_API_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+  const activeKey = geminiKey || aiKey || groqKey || openAiKey;
+  if (!activeKey) {
+    return {
+      ok: false,
+      provider: "none",
+      model: "none",
+      keyConfigured: false,
+      keyMasked: "not_set",
+      baseUrl: "",
+      status: "No AI API key found in environment variables (GEMINI_API_KEY, AI_API_KEY, GROQ_API_KEY).",
+    };
+  }
+
+  const isGemini =
+    Boolean(geminiKey) ||
+    activeKey.startsWith("AQ") ||
+    activeKey.startsWith("AIzaSy") ||
+    /googleapis\.com/.test(process.env.AI_BASE_URL ?? "");
+
+  const provider = isGemini ? "Google Gemini" : (activeKey.startsWith("gsk_") ? "Groq" : "OpenAI/Compatible");
+  const model = process.env.AI_MODEL || (isGemini ? "gemini-3.6-flash" : "openai/gpt-oss-120b");
+  const baseUrl = process.env.AI_BASE_URL || (isGemini ? "https://generativelanguage.googleapis.com/v1beta/openai" : "https://api.groq.com/openai/v1");
+
+  const keyMasked = activeKey.length > 8 ? `${activeKey.slice(0, 6)}...${activeKey.slice(-4)}` : "configured";
+
+  return {
+    ok: true,
+    provider,
+    model,
+    keyConfigured: true,
+    keyMasked,
+    baseUrl,
+    status: "ready",
+  };
+}
+
 export async function queryAI(
   system: string,
   user: string,
@@ -292,21 +344,23 @@ export async function queryAI(
     }
   }
 
-  const apiKey =
+  const rawKey =
     process.env.GEMINI_API_KEY ||
     process.env.AI_API_KEY ||
+    process.env.GROQ_API_KEY ||
     process.env.OPENAI_API_KEY ||
     "";
+  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
   if (!apiKey) {
     throw new Error(
-      "AI API Key is not configured. Please add AI_API_KEY (Groq, Gemini, or OpenAI) to Render Environment Variables.",
+      "AI API Key is not configured. Please add GEMINI_API_KEY or AI_API_KEY to Render Environment Variables.",
     );
   }
 
   const isGemini =
     Boolean(process.env.GEMINI_API_KEY) ||
     apiKey.startsWith("AIzaSy") ||
-    apiKey.startsWith("AQ.") ||
+    apiKey.startsWith("AQ") ||
     /googleapis\.com/.test(process.env.AI_BASE_URL ?? "");
 
   const baseUrl =
@@ -320,7 +374,9 @@ export async function queryAI(
         process.env.AI_MODEL || "gemini-3.6-flash",
         "gemini-3.6-flash",
         "gemini-flash-latest",
-        "gemini-3.5-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-flash",
       ]
     : [
         process.env.AI_MODEL || "openai/gpt-oss-120b",
@@ -334,6 +390,7 @@ export async function queryAI(
 
   try {
     const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const callErrors: string[] = [];
 
     for (const model of modelCandidates) {
       try {
@@ -365,16 +422,22 @@ export async function queryAI(
         }
 
         const errText = await response.text().catch(() => "");
-        console.warn(`[Nova] Model ${model} returned ${response.status}: ${errText.slice(0, 120)}`);
+        const snippet = errText.slice(0, 160).replace(/\s+/g, " ");
+        callErrors.push(`${model} [${response.status}]: ${snippet}`);
+        console.warn(`[Nova] Model ${model} returned ${response.status}: ${snippet}`);
       } catch (innerError) {
+        const msg = innerError instanceof Error ? innerError.message : String(innerError);
+        callErrors.push(`${model}: ${msg}`);
         console.warn(
-          `[Nova] Attempt with ${model} failed:`,
-          innerError instanceof Error ? innerError.message : innerError,
+          `[Nova] Attempt with ${model} failed: ${msg}`,
         );
       }
     }
 
-    throw new Error("Unable to connect to AI provider. Please check your API key and network.");
+    const providerName = isGemini ? "Google Gemini" : "AI Provider";
+    throw new Error(
+      `Unable to connect to ${providerName}. ${callErrors.length > 0 ? `Details: ${callErrors.join(" | ")}` : "Please check your API key and network."}`,
+    );
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("GOAT request timed out. Please try a simpler request.");

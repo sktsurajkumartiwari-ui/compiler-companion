@@ -459,7 +459,7 @@ export function NovaPanel({
             </button>
 
             <div className="model-picker-wrapper">
-              <span className="model-badge-tag">GPT-4o</span>
+              <span className="model-badge-tag">Gemini 3.6 Flash</span>
             </div>
           </div>
 
