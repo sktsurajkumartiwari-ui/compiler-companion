@@ -83,12 +83,14 @@ export function Auth({ onSession, cachedSession, onClearCachedSession }: AuthPro
           const btnEl = document.getElementById("g-btn-container");
           if (btnEl) {
             btnEl.innerHTML = "";
+            const containerWidth = btnEl.parentElement?.clientWidth || 380;
+            const targetWidth = Math.min(380, Math.max(240, containerWidth));
             google.accounts.id.renderButton(btnEl, {
-              theme: "outline",
+              theme: "filled_black",
               size: "large",
               text: "continue_with",
               shape: "rectangular",
-              width: 380,
+              width: targetWidth,
             });
             setHasGoogleGisBtn(true);
           }
