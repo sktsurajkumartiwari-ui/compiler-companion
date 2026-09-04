@@ -231,6 +231,14 @@ const novaInput = z.object({
   diagnostics: analysisInput.shape.diagnostics,
 });
 
+app.get("/", (_req, res) =>
+  res.json({
+    status: "online",
+    message: "Compiler Companion API is running smoothly!",
+    health: "/api/health",
+  }),
+);
+
 app.get("/api/health", (_req, res) =>
   res.json({ ok: true, executionEnabled: process.env.EXECUTION_ENABLED === "true" }),
 );
