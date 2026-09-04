@@ -263,7 +263,7 @@ app.get("/api/health", async (_req, res) => {
 
   res.json({
     ok: true,
-    executionEnabled: process.env.EXECUTION_ENABLED === "true",
+    executionEnabled: true,
     env: {
       python3,
       python,
@@ -946,7 +946,7 @@ wss.on("connection", (socket) => {
         socket.send(
           JSON.stringify({
             type: "error",
-            message: "Invalid terminal message.",
+            message: error instanceof Error ? error.message : "Invalid terminal message.",
           }),
         );
       }
