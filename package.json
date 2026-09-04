@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w @compiler-companion/web\" \"npm run dev -w @compiler-companion/api\"",
     "build": "npm run build -w @compiler-companion/shared && npm run build -w @compiler-companion/api && npm run build -w @compiler-companion/web",
+    "postinstall": "npm run build -w @compiler-companion/shared",
     "test": "npm run test -w @compiler-companion/api",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
