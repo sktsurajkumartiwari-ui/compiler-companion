@@ -259,13 +259,13 @@ export async function queryAI(
   temperature = 0.2,
   asJson = true,
 ): Promise<string> {
-  const baseUrl = process.env.AI_BASE_URL ?? "https://api.groq.com/openai/v1";
+  const configuredUrl = process.env.AI_BASE_URL ?? "";
 
-  if (/localhost:11434|127\.0\.0\.1:11434/.test(baseUrl)) {
+  if (/localhost:11434|127\.0\.0\.1:11434/.test(configuredUrl)) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 90_000);
     try {
-      const response = await fetch(`${baseUrl.replace(/\/v1\/?$/, "")}/api/chat`, {
+      const response = await fetch(`${configuredUrl.replace(/\/v1\/?$/, "")}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -292,16 +292,40 @@ export async function queryAI(
     }
   }
 
-  const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || "";
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.AI_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    "";
   if (!apiKey) {
-    throw new Error("AI API Key is not configured. Please add AI_API_KEY to Render Environment Variables.");
+    throw new Error(
+      "AI API Key is not configured. Please add AI_API_KEY (Groq, Gemini, or OpenAI) to Render Environment Variables.",
+    );
   }
-  const modelCandidates = [
-    process.env.AI_MODEL || "openai/gpt-oss-120b",
-    "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
-    "qwen/qwen3.8-27b",
-  ];
+
+  const isGemini =
+    Boolean(process.env.GEMINI_API_KEY) ||
+    apiKey.startsWith("AIzaSy") ||
+    /googleapis\.com/.test(process.env.AI_BASE_URL ?? "");
+
+  const baseUrl =
+    process.env.AI_BASE_URL ??
+    (isGemini
+      ? "https://generativelanguage.googleapis.com/v1beta/openai"
+      : "https://api.groq.com/openai/v1");
+
+  const modelCandidates = isGemini
+    ? [
+        process.env.AI_MODEL || "gemini-2.0-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+      ]
+    : [
+        process.env.AI_MODEL || "openai/gpt-oss-120b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "qwen/qwen3.8-27b",
+      ];
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
